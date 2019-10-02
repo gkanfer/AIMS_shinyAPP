@@ -35,8 +35,9 @@ ui <- navbarPage("AIMS platform",
                             ),
                             mainPanel(
                               tabsetPanel(
-                                tabPanel("Static raster dapi", plotOutput("raster")),
+                                #tabPanel("Static raster dapi", plotOutput("raster")),
                                 tabPanel("Nucleus channel", displayOutput("dapi")),
+                                tabPanel("Nucleus outline", displayOutput("dapi_outline_seg")),
                                 tabPanel("Nucleus segmentation browser", displayOutput("widget1")),
                                 tabPanel("Nucleus segmentation static", withSpinner(displayOutput("final")))
                               ))),
@@ -145,10 +146,9 @@ ui <- navbarPage("AIMS platform",
                  
 )
 
-####
+#####################################################
 server <- function(input, output,session) {
   options(shiny.maxRequestSize=200*1024^2)
-  
   imgg <- reactive({
     f <- input$images
     if (is.null(f))
@@ -181,24 +181,18 @@ server <- function(input, output,session) {
     
   })
   
-  
-  
-  
   output$dapi <- renderDisplay({
     req(dapi_normal())
     display(dapi_normal())
   })
   
-  
-  
+
   nmask2 <- reactive({
     req(dapi_normal())
     nmask2 = thresh(dapi_normal(), input$wh, input$wh,input$gm)
     mk3 = makeBrush(input$filter, shape= "diamond")
     nmask2 = opening(nmask2, mk3)
   })
-  
-  
   nmask <- reactive({
     req(nmask2())
     nmask2 = fillHull(nmask2())
@@ -210,7 +204,7 @@ server <- function(input, output,session) {
   gsegg<-reactive({
     req(nmask())
     nf = computeFeatures.shape(nmask())
-    nr = which(nf[,2] < 50)
+    nr = which(nf[,2] < input$peri)    ## now corresponds to slider in UI (previously = 50)
     nseg = rmObjects(nmask(), nr)
     #rm(nf,nmask)
     nn = max(nseg)
@@ -241,7 +235,13 @@ server <- function(input, output,session) {
     gsegg = rmObjects(gsegg, nr)
     #rm(nr)
     ######gsegg
+    seg_dapi = paintObjects(gsegg,toRGB(dapi_normal()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
     
+  })
+  
+  output$dapi_outline_seg <- renderDisplay({
+    req(seg_dapi())
+    display(seg_dapi())
   })
   
   output$widget1 <- renderDisplay({
@@ -253,8 +253,6 @@ server <- function(input, output,session) {
     req(gsegg())
     display(gsegg())
   })
-  
-  
   
   output$raster <- renderPlot({
     req(imgg())
@@ -384,7 +382,6 @@ server <- function(input, output,session) {
     #rm(border,ids)
     seg_pink_size = paintObjects(csegpink(),toRGB(cell_normal()),opac=c(1, 0.8),col=c("Green",NA),thick=TRUE,closed=T)
   })
-  
   
   
   output$outline_size <- renderDisplay({
@@ -649,9 +646,7 @@ server <- function(input, output,session) {
     output$cell_number_print<- renderText({
       dim.obse()[3]
     })
-    
-    
-    
+
   })
   
   
@@ -669,12 +664,7 @@ server <- function(input, output,session) {
     
     
   })
-  
-  
-  
-  
-  
-  
+
   Ts.traning<-reactive({
     req(table_test_pink(),negative_data(),postive_data())
     negative.number<-as.numeric(negative_data())
