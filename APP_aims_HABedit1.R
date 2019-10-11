@@ -37,9 +37,9 @@ ui <- navbarPage("AIMS platform",
                               tabsetPanel(
                                 #tabPanel("Static raster dapi", plotOutput("raster")),
                                 tabPanel("Nucleus channel", displayOutput("dapi")),
-                                tabPanel("Nucleus outline", displayOutput("dapi_outline_seg")),
-                                tabPanel("Nucleus segmentation browser", displayOutput("widget1")),
-                                tabPanel("Nucleus segmentation static", withSpinner(displayOutput("final")))
+                                tabPanel("Nucleus mask", displayOutput("widget1")),
+                                tabPanel("Nucleus outline", withSpinner(displayOutput("outline_seg_dapi"))),
+                                tabPanel("Nucleus seg static", withSpinner(displayOutput("final")))
                               ))),
                           sidebarLayout(
                             sidebarPanel(
@@ -178,15 +178,8 @@ server <- function(input, output,session) {
     dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
     GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
     dapi_normal<- dapin*(input$intensity)
-    
   })
   
-  output$dapi <- renderDisplay({
-    req(dapi_normal())
-    display(dapi_normal())
-  })
-  
-
   nmask2 <- reactive({
     req(dapi_normal())
     nmask2 = thresh(dapi_normal(), input$wh, input$wh,input$gm)
@@ -196,59 +189,56 @@ server <- function(input, output,session) {
   nmask <- reactive({
     req(nmask2())
     nmask2 = fillHull(nmask2())
-    nseg = bwlabel(nmask2())  #binery to object
+    nseg = bwlabel(nmask2())  #binary to object
     chackpoint<-computeFeatures.shape(nseg)
-    nmask = watershed( distmap(nmask2()),1)
+    nmask = watershed(distmap(nmask2()),1)
   })
-  
+
   gsegg<-reactive({
     req(nmask())
     nf = computeFeatures.shape(nmask())
     nr = which(nf[,2] < input$peri)    ## now corresponds to slider in UI (previously = 50)
     nseg = rmObjects(nmask(), nr)
     #rm(nf,nmask)
-    nn = max(nseg)
-    chackpoint<-computeFeatures.shape(nseg)
-    int.dapi<-computeFeatures.basic(nseg,dapi_normal())
-    y<-which(scores(int.dapi[,1], type="z",prob = 0.95))
-    tp<-as.numeric(attr(y,"names"))
-    nseg<-rmObjects(nseg,tp)
-    chackpoint<-computeFeatures.shape(nseg)
-    df<-as.data.frame(chackpoint)
-    xy<-computeFeatures.moment(nseg)[,c('m.cx','m.cy')]
-    df<-cbind(df,xy)
-    #display(seg_dapi, method="raster")
-    # blank<-imfill(500,500)
-    # display(blank, method="raster")
-    df.combine<-as.data.frame(matrix(0,nrow(xy),5))
-    colnames(df.combine)<-c("x","y","Area_real","Areal_roundess","ratio")
-    df.combine$x<-xy[,1]
-    df.combine$y<-xy[,2]
-    df.combine$Area_real<-df[,1] #area of sample
-    df.combine$Areal_roundess<-pi*(df[,3])^2
-    df.combine$ratio<-df.combine[,4]/df[,1]
-    nr = which(df.combine[,5] > 1 )
-    gsegg = rmObjects(nseg, nr)
-    #rm(nseg,df)
-    nr = which(df.combine[,5] < 0.6 )
-    #rm(df.combine)
-    gsegg = rmObjects(gsegg, nr)
-    #rm(nr)
-    ######gsegg
-    seg_dapi = paintObjects(gsegg,toRGB(dapi_normal()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
-    
+    #nn = max(nseg)
+    #chackpoint<-computeFeatures.shape(nseg)
+    #int.dapi<-computeFeatures.basic(nseg,dapi_normal())
+    # y<-which(scores(int.dapi[,1], type="z",prob = 0.95))
+    # tp<-as.numeric(attr(y,"names"))
+    # nseg<-rmObjects(nseg,tp)
+    # chackpoint<-computeFeatures.shape(nseg)
+    # df<-as.data.frame(chackpoint)
+    # xy<-computeFeatures.moment(nseg)[,c('m.cx','m.cy')]
+    # df<-cbind(df,xy)
+    # df.combine<-as.data.frame(matrix(0,nrow(xy),5))
+    # colnames(df.combine)<-c("x","y","Area_real","Areal_roundess","ratio")
+    # df.combine$x<-xy[,1]
+    # df.combine$y<-xy[,2]
+    # df.combine$Area_real<-df[,1] #area of sample
+    # df.combine$Areal_roundess<-pi*(df[,3])^2
+    # df.combine$ratio<-df.combine[,4]/df[,1]
+    #nr = which(df.combine[,5] > 100 ) #############
+    #gsegg = rmObjects(nseg, nr)
+    #nr = which(df.combine[,5] < 0.1 ) ##############
+    #gsegg = rmObjects(gsegg, nr)
+    gsegg=nseg
   })
-  
-  output$dapi_outline_seg <- renderDisplay({
-    req(seg_dapi())
-    display(seg_dapi())
+  seg_dapi <- reactive({
+    req(gsegg(), dapi_normal())
+    seg_dapi = paintObjects(gsegg(),toRGB(dapi_normal()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
   })
-  
+  output$dapi <- renderDisplay({
+    req(dapi_normal())
+    display(dapi_normal(), all=FALSE)
+  })
   output$widget1 <- renderDisplay({
     req(nmask2())
     display(nmask2())
   })
-  
+  output$outline_seg_dapi <- renderDisplay({
+    req(seg_dapi())
+    display(seg_dapi())
+  })
   output$final <- renderDisplay({
     req(gsegg())
     display(gsegg())
@@ -258,7 +248,6 @@ server <- function(input, output,session) {
     req(imgg())
     plot(imgg()*5, all=FALSE)
   })
-  
   
   cell_normal <- reactive({
     req(imgg())
