@@ -43,7 +43,7 @@ ui <- navbarPage("AIMS platform",
                           sidebarLayout(
                             sidebarPanel(
                               sliderInput("GFP_intensity", "Image intensity:",1,1000,2,step=1),
-                              sliderInput("wh_GFP","GFP Threshold size:",1,500,100,step=1),
+                              sliderInput("wh_GFP","GFP Threshold size:",1,300,100,step=1),
                               sliderInput("gm_GFP","GFP Threshold offset:",0.0001,0.1,0.012,step=0.001), 
                               sliderInput("filter_GFP", "Detect cell edges:",1,99,21,step=2),
                               sliderInput("global","Detect global edges:",0.1,20,0.2,step=0.1), 
@@ -271,38 +271,6 @@ server <- function(input, output,session) {
     plot(cell_normal(), all=FALSE)
   })
   
-  seg_pink <- reactive({
-    req(cell_normal(),GFP(),gsegg())
-    smooth<-makeBrush(size=input$filter_GFP, shape = "disc")
-    cell_normall<-filter2(cell_normal(),smooth, boundary = c("circular", "replicate"))
-    # display(cell_normal/30,method="raster")
-    thr_cell<-thresh(cell_normall, w=input$wh_GFP, h=input$wh_GFP, offset=input$gm_GFP)
-    colorMode(thr_cell)<-Grayscale
-    cmask = opening(thr_cell, kern=makeBrush(7,shape="disc"))
-    open2<-opening(cell_normal()>input$global)
-    colorMode(open2)<-Grayscale
-    combine<-cmask
-    combine[open2 > cmask]<-open2[open2 > cmask]
-    combine[gsegg() > combine]<-gsegg()[gsegg() > combine]
-    #display(combine,method="raster")
-    # display(open_2/10,method="raster")
-    #display(cmask,method="raster")
-    csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=cmask)
-    csegpink <- fillHull(csegpink)
-    colorMode(csegpink)<-Grayscale
-    # display(seg_pink,method="raster")
-    #display(csegpink,method="raster")
-    csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=combine)
-    csegpink <- fillHull(csegpink)
-    colorMode(csegpink)<-Grayscale
-    seg_pink = paintObjects(csegpink,toRGB(cell_normal()),opac=c(1, 1),col=c("yellow",NA),thick=TRUE,closed=TRUE)
-  })
-  
-  output$outline_seg <- renderDisplay({
-    req(seg_pink())
-    display(seg_pink())
-  })
-  
   csegpink <- reactive({
     req(cell_normal(),GFP(),gsegg())
     smooth<-makeBrush(size=input$filter_GFP, shape = "disc")
@@ -319,55 +287,75 @@ server <- function(input, output,session) {
     #display(combine,method="raster")
     # display(open_2/10,method="raster")
     #display(cmask,method="raster")
-    csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=cmask)
-    csegpink <- fillHull(csegpink)
-    colorMode(csegpink)<-Grayscale
+    #csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=cmask)
+    #csegpink <- fillHull(csegpink)
+    #colorMode(csegpink)<-Grayscale
     # display(seg_pink,method="raster")
     #display(csegpink,method="raster")
     csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=combine)
     csegpink <- fillHull(csegpink)
   })
   
+  seg_pink <- reactive({
+    req(csegpink(), cell_normal())
+    seg_pink = paintObjects(csegpink(),toRGB(cell_normal()),opac=c(1, 1),col=c("yellow",NA),thick=TRUE,closed=TRUE)
+  })
+  
+  output$outline_seg <- renderDisplay({
+    req(seg_pink())
+    display(seg_pink())
+  })
+  
+  # csegpink <- reactive({
+  #   req(cell_normal(),GFP(),gsegg())
+  #   smooth<-makeBrush(size=input$filter_GFP, shape = "disc")
+  #   cell_normall<-filter2(cell_normal(),smooth, boundary = c("circular", "replicate"))
+  #   # display(cell_normal/30,method="raster")
+  #   thr_cell<-thresh(cell_normall, w=input$wh_GFP, h=input$wh_GFP, offset=input$gm_GFP)
+  #   colorMode(thr_cell)<-Grayscale
+  #   cmask = opening(thr_cell, kern=makeBrush(7,shape="disc"))
+  #   open2<-opening(cell_normal()>input$global)
+  #   colorMode(open2)<-Grayscale
+  #   combine<-cmask
+  #   combine[open2 > cmask]<-open2[open2 > cmask]
+  #   combine[gsegg() > combine]<-gsegg()[gsegg() > combine]
+  #   #display(combine,method="raster")
+  #   # display(open_2/10,method="raster")
+  #   #display(cmask,method="raster")
+  #   #csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=cmask)
+  #   #csegpink <- fillHull(csegpink)
+  #   #colorMode(csegpink)<-Grayscale
+  #   # display(seg_pink,method="raster")
+  #   #display(csegpink,method="raster")
+  #   csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=combine)
+  #   csegpink <- fillHull(csegpink)
+  # })
+  # 
   seg_pink_size <- reactive({
     req(csegpink(),cell_normal())
-    csegpink <- fillHull(csegpink())
+    #csegpink <- fillHull(csegpink())
+    csegpink <- csegpink()
     #colorMode(csegpink)<-Grayscale
     xy<-computeFeatures.moment(csegpink)[,c('m.cx','m.cy')]
     cf = computeFeatures.shape(csegpink)
     #seg_pink = paintObjects(csegpink,toRGB(GFP()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
     ##computes the geometric features of the cells outline
     cf = computeFeatures.shape(csegpink)
-    ##print(cf)
     cr = which(cf[,2] < input$peri_GFP)
     csegpink = rmObjects(csegpink, cr)
-    #display(seg_pink/10,method="raster")
     ##removing small obgects: remove all the object smaller (perimeter) than 250 pixel beased on the perimeter which is column 2
     cf = computeFeatures.shape(csegpink)
     cfErea<-data.frame(cf[,1])
     cfErea$num<-row.names(cfErea)
-    ##print(cf)
-    ##summary(cf[,1])
     ci = which(cf[,1] > input$size_GFP)
     csegpink = rmObjects(csegpink, ci)
-    #rm(cf,ci,cfErea,cr)
-    #csegpink= propagate(csegpink, gsegg(), lambda=1.0e-2, mask=combine)
-    #csegpink <- fillHull(csegpink)
-    #colorMode(csegpink)<-Grayscale
-    #seg_pink = paintObjects(csegpink,toRGB(GFP()*10),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
-    #display(seg_pink,method="raster")
     dims<-dim(csegpink)
-    #dims
     border<-c(csegpink[1:dims[1],1], csegpink[1:dims[1],dims[2]], csegpink[1,1:dims[2]], csegpink[dims[1],1:dims[2]])
     ##idintify the objects at the bounder
     ids<-unique(border[which(border !=0)])
     csegpink<-rmObjects(csegpink, ids)
-    #display(csegpink,"raster")
-    #gsegg()<-rmObjects(gsegg(), ids)
-    #display(nseg,"raster")
-    #rm(border,ids)
     seg_pink_size = paintObjects(csegpink(),toRGB(cell_normal()),opac=c(1, 0.8),col=c("Green",NA),thick=TRUE,closed=T)
   })
-  
   
   output$outline_size <- renderDisplay({
     req(seg_pink_size())
