@@ -27,29 +27,28 @@ ui <- navbarPage("AIMS platform",
                               actionButton("reset_input","Reset inputs"),
                               #textOutput(outputId = "file_name"),
                               #sliderInput("size","Image size:",1,1000,1,step=250),  ###choose width and heights
-                              sliderInput("wh","threshold:",1,100,46,step=1), 
-                              sliderInput("intensity", "Choose image intensity:",1,1000,21,step=1),
-                              sliderInput("gm","Gamma DAPI:",0.0001,0.1,0.002,step=0.001),  
+                              sliderInput("intensity", "Image intensity:",1,1000,21,step=1),
+                              sliderInput("wh","Threshold size:",1,200,46,step=1), 
+                              sliderInput("gm","Threshold offset:",0.0001,0.1,0.002,step=0.001),  
                               sliderInput("filter","Detect nuclei edges:",1,99,13,step=2), 
                               sliderInput("peri","Remove small objects:",1,500,30,step=1) 
                             ),
                             mainPanel(
                               tabsetPanel(
-                                #tabPanel("Static raster dapi", plotOutput("raster")),
                                 tabPanel("Nucleus channel", displayOutput("dapi")),
                                 tabPanel("Nucleus mask", displayOutput("widget1")),
-                                tabPanel("Nucleus outline", withSpinner(displayOutput("outline_seg_dapi"))),
-                                tabPanel("Nucleus seg static", withSpinner(displayOutput("final")))
+                                tabPanel("Nucleus seg static", withSpinner(displayOutput("final"))),
+                                tabPanel("Nucleus outline", withSpinner(displayOutput("outline_seg_dapi")))
                               ))),
                           sidebarLayout(
                             sidebarPanel(
-                              sliderInput("GFP_intensity", "Choose image intensity:",1,1000,2,step=1),
+                              sliderInput("GFP_intensity", "Image intensity:",1,1000,2,step=1),
+                              sliderInput("wh_GFP","GFP Threshold size:",1,500,100,step=1),
+                              sliderInput("gm_GFP","GFP Threshold offset:",0.0001,0.1,0.012,step=0.001), 
                               sliderInput("filter_GFP", "Detect cell edges:",1,99,21,step=2),
-                              sliderInput("wh_GFP","GFP threshold:",1,100,7,step=1),
-                              sliderInput("gm_GFP","Gamma GFP:",0.0001,0.1,0.012,step=0.001), 
-                              sliderInput("global","Detect global edges",0.1,20,0.2,step=0.1), 
-                              sliderInput("peri_GFP","Clean small objects",1,1000,50,step=5),  
-                              sliderInput("size_GFP","Clean large objects",5000,50000,5000,step=100),position="left"
+                              sliderInput("global","Detect global edges:",0.1,20,0.2,step=0.1), 
+                              sliderInput("peri_GFP","Clean small objects:",1,1000,50,step=5),  
+                              sliderInput("size_GFP","Clean large objects:",5000,50000,5000,step=100),position="left"
                             ),
                             mainPanel(
                               tabsetPanel(
@@ -179,7 +178,6 @@ server <- function(input, output,session) {
     GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
     dapi_normal<- dapin*(input$intensity)
   })
-  
   nmask2 <- reactive({
     req(dapi_normal())
     nmask2 = thresh(dapi_normal(), input$wh, input$wh,input$gm)
@@ -191,9 +189,9 @@ server <- function(input, output,session) {
     nmask2 = fillHull(nmask2())
     nseg = bwlabel(nmask2())  #binary to object
     chackpoint<-computeFeatures.shape(nseg)
-    nmask = watershed(distmap(nmask2()),1)
+    #nmask = watershed(distmap(nmask2()),1)
+    nmask = nseg
   })
-
   gsegg<-reactive({
     req(nmask())
     nf = computeFeatures.shape(nmask())
@@ -221,7 +219,7 @@ server <- function(input, output,session) {
     #gsegg = rmObjects(nseg, nr)
     #nr = which(df.combine[,5] < 0.1 ) ##############
     #gsegg = rmObjects(gsegg, nr)
-    gsegg=nseg
+    gsegg=fillHull(nseg)
   })
   seg_dapi <- reactive({
     req(gsegg(), dapi_normal())
@@ -243,7 +241,6 @@ server <- function(input, output,session) {
     req(gsegg())
     display(gsegg())
   })
-  
   output$raster <- renderPlot({
     req(imgg())
     plot(imgg()*5, all=FALSE)
@@ -298,9 +295,8 @@ server <- function(input, output,session) {
     csegpink = propagate(cell_normal(), gsegg(), lambda=1.0e-2, mask=combine)
     csegpink <- fillHull(csegpink)
     colorMode(csegpink)<-Grayscale
-    seg_pink = paintObjects(csegpink,toRGB(cell_normal()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
+    seg_pink = paintObjects(csegpink,toRGB(cell_normal()),opac=c(1, 1),col=c("yellow",NA),thick=TRUE,closed=TRUE)
   })
-  
   
   output$outline_seg <- renderDisplay({
     req(seg_pink())
@@ -338,7 +334,7 @@ server <- function(input, output,session) {
     #colorMode(csegpink)<-Grayscale
     xy<-computeFeatures.moment(csegpink)[,c('m.cx','m.cy')]
     cf = computeFeatures.shape(csegpink)
-    seg_pink = paintObjects(csegpink,toRGB(GFP()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
+    #seg_pink = paintObjects(csegpink,toRGB(GFP()),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
     ##computes the geometric features of the cells outline
     cf = computeFeatures.shape(csegpink)
     ##print(cf)
@@ -354,10 +350,10 @@ server <- function(input, output,session) {
     ci = which(cf[,1] > input$size_GFP)
     csegpink = rmObjects(csegpink, ci)
     #rm(cf,ci,cfErea,cr)
-    csegpink   = propagate(csegpink, gsegg(), lambda=1.0e-2, mask=combine)
-    csegpink <- fillHull(csegpink)
+    #csegpink= propagate(csegpink, gsegg(), lambda=1.0e-2, mask=combine)
+    #csegpink <- fillHull(csegpink)
     #colorMode(csegpink)<-Grayscale
-    seg_pink = paintObjects(csegpink,toRGB(GFP()*10),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
+    #seg_pink = paintObjects(csegpink,toRGB(GFP()*10),opac=c(1, 1),col=c("red",NA),thick=TRUE,closed=TRUE)
     #display(seg_pink,method="raster")
     dims<-dim(csegpink)
     #dims
