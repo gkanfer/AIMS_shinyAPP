@@ -56,6 +56,7 @@ ui <- navbarPage("AIMS platform",
                                 tabPanel("Cell outline",withSpinner(displayOutput("outline_seg"))),
                                 tabPanel("Cell outline final",withSpinner(displayOutput("outline_size")))
                               ),
+                              downloadButton("parameters_zero", "Get image settings"),
                               div("Once the file has finished uploading, press the button below:",
                                   actionButton(inputId = "button", label="save the images per cell")),
                               div("Number of cells",textOutput(outputId = "cell_number_print"))
@@ -147,7 +148,7 @@ ui <- navbarPage("AIMS platform",
 
 #####################################################
 server <- function(input, output,session) {
-  options(shiny.maxRequestSize=200*1024^2)
+  options(shiny.maxRequestSize=1000*1024^2)
   imgg <- reactive({
     f <- input$images
     if (is.null(f))
@@ -362,10 +363,14 @@ server <- function(input, output,session) {
     display(seg_pink_size())
   })
   
-  xx<-reactive(parmetrs.vector())
+  xx<-reactive({
+    paramters.df<-as.data.frame(matrix(0,1,12))
+    colnames(paramters.df)<-c("dapi intensity", "dapi thershold", "dapi gama", "dapi filter", "GFP intensity", "filter GFP", "thershold GFP", "gama GFP", "global thershold GFP","Perimeter GFP","Erea GFP","decsion value GFP")
+    paramters.df[1,]<-c(input$intensity, input$wh,input$gm,input$filter,input$GFP_intensity, input$filter_GFP,input$wh_GFP,input$gm_GFP,input$global, input$peri_GFP,input$size_GFP,0)
+    xx<-paramters.df
+  })
   
-  output$parameters <- downloadHandler(
-    
+  output$parameters_zero <- downloadHandler(
     filename <- function(){
       paste("table.csv",sep = "_")
     },
@@ -619,7 +624,7 @@ server <- function(input, output,session) {
     output$cell_number_print<- renderText({
       dim.obse()[3]
     })
-
+    
   })
   
   
@@ -637,7 +642,7 @@ server <- function(input, output,session) {
     
     
   })
-
+  
   Ts.traning<-reactive({
     req(table_test_pink(),negative_data(),postive_data())
     negative.number<-as.numeric(negative_data())
@@ -1050,16 +1055,16 @@ server <- function(input, output,session) {
   })
   
   xx<-reactive({
-    paramters.df<-as.data.frame(matrix(0,1,13))
+    paramters.df<-as.data.frame(matrix(0,1,12))
     colnames(paramters.df)<-c("dapi intensity", "dapi thershold", "dapi gama", "dapi filter", "GFP intensity", "filter GFP", "thershold GFP", "gama GFP", "global thershold GFP","Perimeter GFP","Erea GFP","decsion value GFP")
-    paramters.df[1,]<-c(input$intensity, input$wh,input$gm,input$filter,input$GFP_intensity, input$filter_GFP,input$wh_GFP,input$gm_GFP,input$global, input$peri_GFP,input$size.new_GFP,input$dv)
+    paramters.df[1,]<-c(input$intensity, input$wh,input$gm,input$filter,input$GFP_intensity, input$filter_GFP,input$wh_GFP,input$gm_GFP,input$global, input$peri_GFP,input$size_GFP,input$dv)
     xx<-paramters.df
   })
   
   output$parameters <- downloadHandler(
     
     filename <- function(){
-      paste("table.csv",sep = "_")
+      paste("table.txt",sep = "_")
     },
     content <- function(file) {
       write.csv(xx(), file, row.names = FALSE)
