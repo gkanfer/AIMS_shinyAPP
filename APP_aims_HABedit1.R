@@ -969,12 +969,12 @@ server <- function(input, output,session) {
     #display(seg_pink,method="raster")
     dims<-dim(csegpink)
     #dims
-    border<-c(csegpink[1:dims[1],1], csegpink[1:dims[1],dims[2]], csegpink[1,1:dims[2]], csegpink[dims[1],1:dims[2]])
-    ##idintify the objects at the bounder
-    ids<-unique(border[which(border !=0)])
-    csegpink<-rmObjects(csegpink, ids)
-    #display(csegpink,"raster")
-    gsegg<-rmObjects(gsegg, ids)
+    # border<-c(csegpink[1:dims[1],1], csegpink[1:dims[1],dims[2]], csegpink[1,1:dims[2]], csegpink[dims[1],1:dims[2]])
+    # ##idintify the objects at the bounder
+    # ids<-unique(border[which(border !=0)])
+    # csegpink<-rmObjects(csegpink, ids)
+    # #display(csegpink,"raster")
+    # gsegg<-rmObjects(gsegg, ids)
     #display(nseg,"raster")
     #rm(border,ids)
     seg_pink_size.new = paintObjects(csegpink,toRGB(cell_normal),opac=c(1, 0.8),col=c("Green",NA),thick=TRUE,closed=T)
@@ -1036,7 +1036,8 @@ server <- function(input, output,session) {
     # mseg<- rmObjects(gsegg, nr)
     nr = which(Ts.mix$pred %in% "p")
     gsegg = rmObjects(gsegg, nr)
-    ll.temp$gsegg.selected<-gsegg
+    #browser()
+    ll.temp[[paste0("gsegg.selected")]]<-gsegg
     seg_pink_positive<-ll.temp
   })
   
