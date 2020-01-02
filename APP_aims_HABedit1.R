@@ -132,7 +132,7 @@ ui <- navbarPage("AIMS platform",
                               h4("Choose cells"),
                               sliderInput("intensity_classification_1", "Image intensity:",0.1,500,1,step=0.1),
                               actionButton(inputId = "button_postive_1", label="Image update"),
-                              downloadButton("postive_training_1", "Download negative example cells")),
+                              downloadButton("postive_training_1", "Download postive example cells")),
                             mainPanel(plotOutput("postive_image_1", width="1000px", height="1000px",click="plot_click"))),
                           sidebarLayout(
                             sidebarPanel(
@@ -1018,7 +1018,7 @@ server <- function(input, output,session) {
     #tabledc<-data.table(d,y.pred)
     new.y.pred=rep("p",length(y.pred))
     NewCutoff=input$dv
-    new.y.pred[d>NewCutoff]="N"
+    new.y.pred[which(d < NewCutoff)]="N"
     length(new.y.pred)
     #tabledc<-data.table(d,new.y.pred)
     d<-round(d,1)
@@ -1029,14 +1029,14 @@ server <- function(input, output,session) {
     Ts.mix$rowNameTable<-rowNameTable
     # ir = which(Ts.mix$pred %in% "N")
     # csegpink = rmObjects(csegpink, ir)
-    #seg_pink_positive = paintObjects(csegpink,toRGB(GFP*2),opac=c(1,0.8),col=c("Green",NA),thick=TRUE,closed=FALSE)
-    # display(seg_pink_positive,"raster")
+    #temp = paintObjects(csegpink,toRGB(GFP*2),opac=c(1,0.8),col=c("Green",NA),thick=TRUE,closed=FALSE)
+    #display(seg_pink_positive,"raster")
+    #celltext = text(x= xy[,1], y= xy[,2] , labels=d, col="yellow", cex = 0.7)
     # display(csegpink*5,"raster")
     # pr = which(Ts.mix$pred %in% "N")
     # mseg<- rmObjects(gsegg, nr)
     nr = which(Ts.mix$pred %in% "p")
     gsegg = rmObjects(gsegg, nr)
-    #browser()
     ll.temp[[paste0("gsegg.selected")]]<-gsegg
     seg_pink_positive<-ll.temp
   })
