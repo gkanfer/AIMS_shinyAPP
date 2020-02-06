@@ -7,23 +7,36 @@ library("yaImpute")
 library("shinyDND")
 library(shinyDirectoryInput)
 library(e1071)
-library("ROCR", lib.loc="~/Library/R/3.4/library")
-library("ggbiplot", lib.loc="~/Library/R/3.5/library")
+library("ROCR")
+library("ggbiplot")
 library("dragulaR")
-library("raster", lib.loc="~/Library/R/3.5/library")
-library("leaflet", lib.loc="~/Library/R/3.5/library")
-library("shinyjs", lib.loc="~/Library/R/3.5/library")
-
-#setwd("~/Desktop/Gil_LabWork/AIMS/Shiny/011619/")
+library("raster")
+library("leaflet")
+library("shinyjs")
 
 ui <- navbarPage("AIMS platform",
+                 tabPanel("Image Setup",
+                          sidebarLayout(
+                            sidebarPanel(
+                              h4("Choose File"),
+                              fileInput("images", "Select image"),
+                              selectInput("DAPI", "Dapi:",  c("ch1", "ch2", "ch3", "ch4"))
+                            ),
+                            mainPanel(
+                              tabsetPanel(
+                                tabPanel("Channel 1", displayOutput("ch1"))
+                                #tabPanel("Channel 2", displayOutput("ch2")),
+                                #tabPanel("Channel 3", displayOutput("ch3")),
+                                #tabPanel("Channel 4", displayOutput("ch4"))
+                            ))),
+                          ),
                  tabPanel("Image Analysis",
                           sidebarLayout(
                             sidebarPanel(
-                              h4("Channel 1"),
-                              fileInput("images", "Select image"),
-                              shinyjs::useShinyjs(),
-                              id="side-panel",
+                              #h4("Channel 1"),
+                              #fileInput("images", "Select image"),
+                              #shinyjs::useShinyjs(),
+                              #id="side-panel",
                               actionButton("reset_input","Reset inputs"),
                               #textOutput(outputId = "file_name"),
                               #sliderInput("size","Image size:",1,1000,1,step=250),  ###choose width and heights
@@ -163,6 +176,19 @@ server <- function(input, output,session) {
   size<-reactive({
     req(imgg())
     size<-as.numeric(dim(imgg()))
+  })
+  
+  ch1 <- reactive({
+    req(imgg())
+    ch1_a <- imgg()[1:size()[1], 1:size()[2],1]
+    minCH1 <- min(as.vector(ch1_a))
+    maxCH1 <- min(as.vector(ch1_a))
+    ch1 <- normalize(ch1_a, ft=c(0,1), c(minCH1, maxCH1))
+  })
+  
+  output$ch1 <- renderDisplay({
+    req(ch1())
+    display(ch1(), all=FALSE)
   })
   
   dapi_normal <- reactive({
@@ -1381,15 +1407,6 @@ server <- function(input, output,session) {
       saveRDS(Ts.traning,file = file)
     }
   )
-  
-  
-  
-  
-  
-  
-  
-  
-  
 }
 
 # Run the application
