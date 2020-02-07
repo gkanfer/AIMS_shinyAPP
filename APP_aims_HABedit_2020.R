@@ -1,4 +1,3 @@
-rm(list=ls())
 library("shiny")
 library("EBImage")
 library(outliers)
@@ -20,14 +19,15 @@ ui <- navbarPage("AIMS platform",
                             sidebarPanel(
                               h4("Choose File"),
                               fileInput("images", "Select image"),
-                              selectInput("DAPI", "Dapi:",  c("ch1", "ch2", "ch3", "ch4"))
+                              selectInput("DAPI", "Dapi:",  c("ch1", "ch2", "ch3", "ch4")), 
+                              selectInput("GFP", "GFP:", c("ch1", "ch2", "ch3", "ch4"))
                             ),
                             mainPanel(
                               tabsetPanel(
-                                tabPanel("Channel 1", displayOutput("ch1"))
-                                #tabPanel("Channel 2", displayOutput("ch2")),
-                                #tabPanel("Channel 3", displayOutput("ch3")),
-                                #tabPanel("Channel 4", displayOutput("ch4"))
+                                tabPanel("Channel 1", displayOutput("ch1")),
+                                tabPanel("Channel 2", displayOutput("ch2")),
+                                tabPanel("Channel 3", displayOutput("ch3")),
+                                tabPanel("Channel 4", displayOutput("ch4"))
                             ))),
                           ),
                  tabPanel("Image Analysis",
@@ -161,6 +161,7 @@ ui <- navbarPage("AIMS platform",
 
 #####################################################
 server <- function(input, output,session) {
+  mypackages <- c("packagename1", "packagename2", "packagename3")
   options(shiny.maxRequestSize=1000*1024^2)
   imgg <- reactive({
     f <- input$images
@@ -193,18 +194,33 @@ server <- function(input, output,session) {
   
   dapi_normal <- reactive({
     req(imgg())
-    GFP<-imgg()[1:size()[1],1:size()[2],1]
-    dapi<-imgg()[1:size()[1],1:size()[2],2]
-    # GFP<-imgg()[1:input$size,1:input$size,1]
-    # dapi<-imgg()[1:input$size,1:input$size,2]
+    dapi_ch <- input$DAPI
+    if (dapi_ch == "ch1") {
+      dapi_index = 1
+    } else if (dapi_ch == "ch2") {
+      dapi_index = 2
+    }
+    dapi_n = as.numeric(dapi_index)
+    dapi<-imgg()[1:size()[1],1:size()[2],dapi_n]
     minDapi<-min(as.vector(dapi))
     maxDapi<-max(as.vector(dapi))
-    minGFP<-min(as.vector(GFP))
-    maxGFP<-max(as.vector(GFP))
     dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
-    GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
     dapi_normal<- dapin*(input$intensity)
   })
+  # dapi_normal <- reactive({
+  #   req(imgg())
+  #   GFP<-imgg()[1:size()[1],1:size()[2],]
+  #   dapi<-imgg()[1:size()[1],1:size()[2],2]
+  #   # GFP<-imgg()[1:input$size,1:input$size,1]
+  #   # dapi<-imgg()[1:input$size,1:input$size,2]
+  #   minDapi<-min(as.vector(dapi))
+  #   maxDapi<-max(as.vector(dapi))
+  #   minGFP<-min(as.vector(GFP))
+  #   maxGFP<-max(as.vector(GFP))
+  #   dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
+  #   GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
+  #   dapi_normal<- dapin*(input$intensity)
+  # })
   nmask2 <- reactive({
     req(dapi_normal())
     nmask2 = thresh(dapi_normal(), input$wh, input$wh,input$gm)
