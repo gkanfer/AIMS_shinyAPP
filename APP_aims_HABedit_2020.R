@@ -161,7 +161,6 @@ ui <- navbarPage("AIMS platform",
 
 #####################################################
 server <- function(input, output,session) {
-  mypackages <- c("packagename1", "packagename2", "packagename3")
   options(shiny.maxRequestSize=1000*1024^2)
   imgg <- reactive({
     f <- input$images
@@ -186,10 +185,21 @@ server <- function(input, output,session) {
     maxCH1 <- min(as.vector(ch1_a))
     ch1 <- normalize(ch1_a, ft=c(0,1), c(minCH1, maxCH1))
   })
+  ch2 <- reactive({
+    req(imgg())
+    ch_a <- imgg()[1:size()[1], 1:size()[2],2]
+    minCH <- min(as.vector(ch_a))
+    maxCH <- min(as.vector(ch_a))
+    ch2 <- normalize(ch_a, ft=c(0,1), c(minCH, maxCH))
+  })
   
   output$ch1 <- renderDisplay({
     req(ch1())
     display(ch1(), all=FALSE)
+  })
+  output$ch2 <- renderDisplay({
+    req(ch2())
+    display(ch2(), all=FALSE)
   })
   
   dapi_normal <- reactive({
