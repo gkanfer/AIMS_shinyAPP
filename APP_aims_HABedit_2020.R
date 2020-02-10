@@ -19,8 +19,12 @@ ui <- navbarPage("AIMS platform",
                             sidebarPanel(
                               h4("Choose File"),
                               fileInput("images", "Select image"),
+                              sliderInput("intensity1", "CH1 intensity:",1,500,10,step=1),
+                              sliderInput("intensity2", "CH2 intensity:",1,500,10,step=1),
+                              sliderInput("intensity3", "CH3 intensity:", 1,500,10,step=1),
+                              sliderInput("intensity4", "CH4 intensity:", 1,500,10,step=1),
                               selectInput("DAPI", "Dapi:",  c("ch1", "ch2", "ch3", "ch4")), 
-                              selectInput("GFP", "GFP:", c("ch1", "ch2", "ch3", "ch4"))
+                              selectInput("PH", "Pheno:", c("ch1", "ch2", "ch3", "ch4")),
                             ),
                             mainPanel(
                               tabsetPanel(
@@ -40,6 +44,7 @@ ui <- navbarPage("AIMS platform",
                               actionButton("reset_input","Reset inputs"),
                               #textOutput(outputId = "file_name"),
                               #sliderInput("size","Image size:",1,1000,1,step=250),  ###choose width and heights
+                              h4("DAPI"),
                               sliderInput("intensity", "Image intensity:",1,1000,21,step=1),
                               sliderInput("wh","Threshold size:",1,200,46,step=1), 
                               sliderInput("gm","Threshold offset:",0.0001,0.1,0.002,step=0.001),  
@@ -50,11 +55,12 @@ ui <- navbarPage("AIMS platform",
                               tabsetPanel(
                                 tabPanel("Nucleus channel", displayOutput("dapi")),
                                 tabPanel("Nucleus mask", displayOutput("widget1")),
-                                tabPanel("Nucleus seg static", withSpinner(displayOutput("final"))),
-                                tabPanel("Nucleus outline", withSpinner(displayOutput("outline_seg_dapi")))
+                                tabPanel("Nucleus seg static", displayOutput("final")),
+                                tabPanel("Nucleus outline", displayOutput("outline_seg_dapi"))
                               ))),
                           sidebarLayout(
                             sidebarPanel(
+                              h4("Pheno"),
                               sliderInput("GFP_intensity", "Image intensity:",1,1000,2,step=1),
                               sliderInput("wh_GFP","GFP Threshold size:",1,300,100,step=1),
                               sliderInput("gm_GFP","GFP Threshold offset:",0.0001,0.1,0.012,step=0.001), 
@@ -184,15 +190,44 @@ server <- function(input, output,session) {
     minCH1 <- min(as.vector(ch1_a))
     maxCH1 <- min(as.vector(ch1_a))
     ch1 <- normalize(ch1_a, ft=c(0,1), c(minCH1, maxCH1))
+    ch1 <- ch1*(input$intensity1)
   })
   ch2 <- reactive({
     req(imgg())
-    ch_a <- imgg()[1:size()[1], 1:size()[2],2]
-    minCH <- min(as.vector(ch_a))
-    maxCH <- min(as.vector(ch_a))
-    ch2 <- normalize(ch_a, ft=c(0,1), c(minCH, maxCH))
+    ch2_a <- imgg()[1:size()[1], 1:size()[2],2]
+    minCH <- min(as.vector(ch2_a))
+    maxCH <- min(as.vector(ch2_a))
+    ch2 <- normalize(ch2_a, ft=c(0,1), c(minCH, maxCH))
+    ch2 <- ch2*(input$intensity2)
   })
-  
+  ch3 <- reactive({
+    req(imgg())
+    dim_ch <- size()[3]
+    if (dim_ch < 3) {
+      print("No Channel")
+    }
+    else {
+      ch3_a <- imgg()[1:size()[1], 1:size()[2],3]
+      minCH3 <- min(as.vector(ch3_a))
+      maxCH3 <- min(as.vector(ch3_a))
+      ch3 <- normalize(ch3_a, ft=c(0,1), c(minCH3, maxCH3))
+      ch3 <- ch3*(input$intensity3)
+    }
+  })
+  ch4 <- reactive({
+    req(imgg())
+    dim_ch <- size()[3]
+    if (dim_ch < 4) {
+      ch4 <- array(0,0)
+    }
+    else {
+      ch4_a <- imgg()[1:size()[1], 1:size()[2],4]
+      minCH4 <- min(as.vector(ch4_a))
+      maxCH4 <- min(as.vector(ch4_a))
+      ch4 <- normalize(ch4_a, ft=c(0,1), c(minCH3, maxCH3))
+      ch4 <- ch4*(input$intensity3)
+    }
+  })
   output$ch1 <- renderDisplay({
     req(ch1())
     display(ch1(), all=FALSE)
@@ -200,6 +235,14 @@ server <- function(input, output,session) {
   output$ch2 <- renderDisplay({
     req(ch2())
     display(ch2(), all=FALSE)
+  })
+  output$ch3 <- renderDisplay({
+    req(ch3())
+    display(ch3(), all=FALSE)
+  })
+  output$ch4 <- renderDisplay({
+    req(ch4())
+    display(ch4(), all=FALSE)
   })
   
   dapi_normal <- reactive({
@@ -217,20 +260,7 @@ server <- function(input, output,session) {
     dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
     dapi_normal<- dapin*(input$intensity)
   })
-  # dapi_normal <- reactive({
-  #   req(imgg())
-  #   GFP<-imgg()[1:size()[1],1:size()[2],]
-  #   dapi<-imgg()[1:size()[1],1:size()[2],2]
-  #   # GFP<-imgg()[1:input$size,1:input$size,1]
-  #   # dapi<-imgg()[1:input$size,1:input$size,2]
-  #   minDapi<-min(as.vector(dapi))
-  #   maxDapi<-max(as.vector(dapi))
-  #   minGFP<-min(as.vector(GFP))
-  #   maxGFP<-max(as.vector(GFP))
-  #   dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
-  #   GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
-  #   dapi_normal<- dapin*(input$intensity)
-  # })
+
   nmask2 <- reactive({
     req(dapi_normal())
     nmask2 = thresh(dapi_normal(), input$wh, input$wh,input$gm)
@@ -241,7 +271,7 @@ server <- function(input, output,session) {
     req(nmask2())
     nmask2 = fillHull(nmask2())
     nseg = bwlabel(nmask2())  #binary to object
-    chackpoint<-computeFeatures.shape(nseg)
+    #chackpoint<-computeFeatures.shape(nseg)
     #nmask = watershed(distmap(nmask2()),1)
     nmask = nseg
   })
@@ -249,30 +279,8 @@ server <- function(input, output,session) {
     req(nmask())
     nf = computeFeatures.shape(nmask())
     nr = which(nf[,2] < input$peri)    ## now corresponds to slider in UI (previously = 50)
-    nseg = rmObjects(nmask(), nr)
-    #rm(nf,nmask)
-    #nn = max(nseg)
-    #chackpoint<-computeFeatures.shape(nseg)
-    #int.dapi<-computeFeatures.basic(nseg,dapi_normal())
-    # y<-which(scores(int.dapi[,1], type="z",prob = 0.95))
-    # tp<-as.numeric(attr(y,"names"))
-    # nseg<-rmObjects(nseg,tp)
-    # chackpoint<-computeFeatures.shape(nseg)
-    # df<-as.data.frame(chackpoint)
-    # xy<-computeFeatures.moment(nseg)[,c('m.cx','m.cy')]
-    # df<-cbind(df,xy)
-    # df.combine<-as.data.frame(matrix(0,nrow(xy),5))
-    # colnames(df.combine)<-c("x","y","Area_real","Areal_roundess","ratio")
-    # df.combine$x<-xy[,1]
-    # df.combine$y<-xy[,2]
-    # df.combine$Area_real<-df[,1] #area of sample
-    # df.combine$Areal_roundess<-pi*(df[,3])^2
-    # df.combine$ratio<-df.combine[,4]/df[,1]
-    #nr = which(df.combine[,5] > 100 ) #############
-    #gsegg = rmObjects(nseg, nr)
-    #nr = which(df.combine[,5] < 0.1 ) ##############
-    #gsegg = rmObjects(gsegg, nr)
-    gsegg=fillHull(nseg)
+    nseg2 = rmObjects(nmask(), nr)
+    gsegg=fillHull(nseg2)
   })
   seg_dapi <- reactive({
     req(gsegg(), dapi_normal())
@@ -286,14 +294,15 @@ server <- function(input, output,session) {
     req(nmask2())
     display(nmask2())
   })
-  output$outline_seg_dapi <- renderDisplay({
-    req(seg_dapi())
-    display(seg_dapi())
-  })
   output$final <- renderDisplay({
     req(gsegg())
     display(gsegg())
   })
+  output$outline_seg_dapi <- renderDisplay({
+    req(seg_dapi())
+    display(seg_dapi())
+  })
+ 
   output$raster <- renderPlot({
     req(imgg())
     plot(imgg()*5, all=FALSE)
@@ -301,22 +310,33 @@ server <- function(input, output,session) {
   
   cell_normal <- reactive({
     req(imgg())
-    GFP<-imgg()[1:size()[1],1:size()[2],1]
-    dapi<-imgg()[1:size()[1],1:size()[2],2]
-    # GFP<-imgg()[1:input$size,1:input$size,1]
-    # dapi<-imgg()[1:input$size,1:input$size,2]
-    minDapi<-min(as.vector(dapi))
-    maxDapi<-max(as.vector(dapi))
+    cell_ch <- input$PH
+    if (cell_ch == "ch1") {
+      c_index = 1
+    } else if (cell_ch == "ch2") {
+      c_index = 2
+    }
+    c_n = as.numeric(c_index)
+    GFP<-imgg()[1:size()[1],1:size()[2],c_n]
+    #minDapi<-min(as.vector(dapi))
+    #maxDapi<-max(as.vector(dapi))
     minGFP<-min(as.vector(GFP))
     maxGFP<-max(as.vector(GFP))
-    dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
+    #dapin<-normalize(dapi, ft=c(0,1),c(minDapi,maxDapi))
     GFPn<-normalize(GFP, ft=c(0,1) ,c(minGFP,maxGFP))
     cell_normal<- GFPn*input$GFP_intensity
   })
   
   GFP <- reactive({
     req(imgg())
-    GFP<-imgg()[1:size()[1],1:size()[2],1]
+    cell_ch <- input$PH
+    if (cell_ch == "ch1") {
+      c_index = 1
+    } else if (cell_ch == "ch2") {
+      c_index = 2
+    }
+    c_n = as.numeric(c_index)
+    GFP<-imgg()[1:size()[1],1:size()[2],c_n]
   })
   
   output$raster_GFP <- renderPlot({
